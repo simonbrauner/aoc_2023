@@ -1,5 +1,6 @@
-use std::path::PathBuf;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
+use anyhow::{Context, Result};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -12,12 +13,18 @@ struct Args {
     input: PathBuf,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
+    let _reader = BufReader::new(
+        File::open(&args.input)
+            .with_context(|| format!("Failed to open '{}'", args.input.display()))?,
+    );
 
     println!(
         "run solution {} on input file {}",
         args.day,
         args.input.display()
     );
+
+    Ok(())
 }
