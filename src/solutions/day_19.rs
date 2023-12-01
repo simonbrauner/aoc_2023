@@ -1,14 +1,5 @@
-use std::io::BufRead;
-use std::{fs::File, io::BufReader};
-
-use anyhow::Result;
-
-pub fn solve(reader: BufReader<File>) -> Result<String> {
-    for line in reader.lines() {
-        line?;
-    }
-
-    Ok(format!("{}\n{}\n", part_1(), part_2()))
+pub fn solve(_input: &[String]) -> String {
+    format!("{}\n{}\n", part_1(), part_2())
 }
 
 fn part_1() -> String {
