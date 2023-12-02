@@ -24,7 +24,7 @@ pub fn solve(input: &[String]) -> String {
         games.push(Game { id, cubes });
     }
 
-    format!("{}\n{}\n", part_1(&games), part_2())
+    format!("{}\n{}\n", part_1(&games), part_2(&games))
 }
 
 fn part_1(games: &[Game]) -> u32 {
@@ -40,8 +40,30 @@ fn part_1(games: &[Game]) -> u32 {
         .sum()
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn part_2(games: &[Game]) -> u32 {
+    games
+        .iter()
+        .map(|game| {
+            let mut power = 1;
+
+            for color_possibility in &[CubeColor::Red, CubeColor::Green, CubeColor::Blue] {
+                power *= game
+                    .cubes
+                    .iter()
+                    .filter_map(|(count, color)| {
+                        if color == color_possibility {
+                            Some(*count)
+                        } else {
+                            None
+                        }
+                    })
+                    .max()
+                    .unwrap_or(0)
+            }
+
+            power
+        })
+        .sum()
 }
 
 struct Game {
@@ -57,6 +79,7 @@ impl Game {
     }
 }
 
+#[derive(PartialEq)]
 enum CubeColor {
     Red,
     Green,
