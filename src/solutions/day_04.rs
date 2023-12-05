@@ -28,15 +28,30 @@ pub fn solve(input: &[String]) -> String {
             my_numbers,
         });
     }
-    format!("{}\n{}\n", part_1(&cards), part_2())
+
+    format!("{}\n{}\n", part_1(&cards), part_2(&cards))
 }
 
 fn part_1(cards: &[Card]) -> u32 {
-    cards.iter().map(card_points).sum()
+    cards
+        .iter()
+        .map(|card| match card.winning_count() {
+            0 => 0,
+            number => 2_u32.pow(number as u32 - 1),
+        })
+        .sum()
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn part_2(cards: &[Card]) -> u32 {
+    let mut card_counts: Vec<u32> = (0..cards.len()).map(|_| 1).collect();
+
+    for (index, card) in cards.iter().enumerate() {
+        for new_card_index in index + 1..index + 1 + card.winning_count() {
+            card_counts[new_card_index] += card_counts[index];
+        }
+    }
+
+    card_counts.iter().sum()
 }
 
 struct Card {
@@ -44,14 +59,11 @@ struct Card {
     my_numbers: HashSet<u32>,
 }
 
-fn card_points(card: &Card) -> u32 {
-    match card
-        .my_numbers
-        .iter()
-        .filter(|number| card.winning_numbers.contains(number))
-        .count() as u32
-    {
-        0 => 0,
-        number => 2_u32.pow(number - 1),
+impl Card {
+    fn winning_count(&self) -> usize {
+        self.my_numbers
+            .iter()
+            .filter(|number| self.winning_numbers.contains(number))
+            .count()
     }
 }
