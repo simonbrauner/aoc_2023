@@ -8,18 +8,50 @@ pub fn solve(input: &[String]) -> String {
         })
         .collect();
 
-    format!("{}\n{}\n", part_1(&sequences), part_2())
+    format!("{}\n{}\n", part_1(&sequences), part_2(&sequences))
 }
 
 fn part_1(sequences: &[Vec<i64>]) -> i64 {
-    sequences.iter().cloned().map(next_value).sum()
+    sum_of_predicted_values(
+        sequences,
+        &|sequence| *sequence.last().unwrap(),
+        &|accumulator, number| accumulator + number,
+    )
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn part_2(sequences: &[Vec<i64>]) -> i64 {
+    sum_of_predicted_values(
+        sequences,
+        &|sequence| *sequence.first().unwrap(),
+        &|accumulator, number| -accumulator + number,
+    )
 }
 
-fn next_value(sequence: Vec<i64>) -> i64 {
+fn sum_of_predicted_values(
+    sequences: &[Vec<i64>],
+    location: &dyn Fn(&Vec<i64>) -> i64,
+    extrapolation: &dyn Fn(i64, i64) -> i64,
+) -> i64 {
+    sequences
+        .iter()
+        .cloned()
+        .map(|sequence| predict_value(sequence, location, extrapolation))
+        .sum()
+}
+
+fn predict_value(
+    sequence: Vec<i64>,
+    location: &dyn Fn(&Vec<i64>) -> i64,
+    extrapolation: &dyn Fn(i64, i64) -> i64,
+) -> i64 {
+    sequence_with_differences(sequence)
+        .iter()
+        .rev()
+        .map(location)
+        .fold(0, extrapolation)
+}
+
+fn sequence_with_differences(sequence: Vec<i64>) -> Vec<Vec<i64>> {
     let mut sequences = vec![sequence];
 
     while let Some(current) = sequences.last() {
@@ -37,7 +69,4 @@ fn next_value(sequence: Vec<i64>) -> i64 {
     }
 
     sequences
-        .iter()
-        .map(|sequence| sequence.last().unwrap())
-        .sum()
 }
