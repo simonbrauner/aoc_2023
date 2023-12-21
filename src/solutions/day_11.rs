@@ -4,59 +4,81 @@ use std::{
 };
 
 pub fn solve(input: &[String]) -> String {
-    let image = expanded_image(input);
-
-    format!("{}\n{}\n", part_1(&image), part_2())
-}
-
-fn part_1(image: &[Vec<char>]) -> usize {
     let mut galaxies = HashSet::new();
+    let mut expanded_rows = Vec::new();
 
-    for (row_index, row) in image.iter().enumerate() {
-        for (col_index, pixel) in row.iter().enumerate() {
-            if pixel == &'#' {
+    for (row_index, row) in input.iter().enumerate() {
+        let mut galaxy_found = false;
+
+        for (col_index, letter) in row.char_indices() {
+            if letter == '#' {
                 galaxies.insert((col_index, row_index));
+                galaxy_found = true;
             }
         }
+
+        expanded_rows.push(!galaxy_found);
     }
 
+    let mut expanded_cols = Vec::new();
+
+    for col_index in 0..input[0].len() {
+        expanded_cols.push(
+            input
+                .iter()
+                .all(|row| row.chars().nth(col_index).unwrap() == '.'),
+        );
+    }
+
+    let image = Image {
+        galaxies,
+        expanded_cols,
+        expanded_rows,
+    };
+
+    format!("{}\n{}\n", part_1(&image), part_2(&image))
+}
+
+fn part_1(image: &Image) -> usize {
+    sum_of_lenghts(image, 2)
+}
+
+fn part_2(image: &Image) -> usize {
+    sum_of_lenghts(image, 1_000_000)
+}
+
+fn sum_of_lenghts(image: &Image, expansion: usize) -> usize {
     let mut lengths = 0;
-    for (col, row) in &galaxies {
-        for (other_col, other_row) in &galaxies {
-            lengths += max(col, other_col) - min(col, other_col);
-            lengths += max(row, other_row) - min(row, other_row);
+
+    for (col, row) in &image.galaxies {
+        for (other_col, other_row) in &image.galaxies {
+            lengths += (*min(col, other_col)..*max(col, other_col))
+                .map(|index| {
+                    if image.expanded_cols[index] {
+                        expansion
+                    } else {
+                        1
+                    }
+                })
+                .sum::<usize>();
+
+            lengths += (*min(row, other_row)..*max(row, other_row))
+                .map(|index| {
+                    if image.expanded_rows[index] {
+                        expansion
+                    } else {
+                        1
+                    }
+                })
+                .sum::<usize>();
         }
     }
 
     lengths / 2
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
-}
-
-fn expanded_image(image: &[String]) -> Vec<Vec<char>> {
-    let mut expanded: Vec<Vec<char>> = Vec::new();
-
-    for row in image {
-        expanded.push(row.chars().collect());
-        if !row.contains('#') {
-            expanded.push(row.chars().collect());
-        }
-    }
-
-    let mut col_index = 0;
-    while col_index < expanded[0].len() {
-        if expanded.iter().all(|row| row[col_index] == '.') {
-            for row in expanded.iter_mut() {
-                row.insert(col_index, '.');
-            }
-
-            col_index += 1;
-        }
-
-        col_index += 1;
-    }
-
-    expanded
+struct Image {
+    galaxies: HashSet<(usize, usize)>,
+    expanded_cols: Vec<bool>,
+    expanded_rows: Vec<bool>,
 }
