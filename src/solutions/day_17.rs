@@ -1,9 +1,12 @@
-use std::collections::HashMap;
+use std::{cmp::Reverse, collections::HashMap};
 
+use priority_queue::PriorityQueue;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 pub fn solve(input: &[String]) -> String {
+    let x_size = input[0].len() as i32;
+    let y_size = input.len() as i32;
     let mut vertices = HashMap::new();
 
     for (y, row) in input.iter().enumerate() {
@@ -11,7 +14,7 @@ pub fn solve(input: &[String]) -> String {
             let heat_loss = number.to_digit(10).unwrap() as i32;
             for direction in Direction::iter() {
                 vertices.insert(
-                    (x as i32, y as i32),
+                    (x as i32, y as i32, direction.clone()),
                     Vertex {
                         x: x as i32,
                         y: y as i32,
@@ -24,28 +27,27 @@ pub fn solve(input: &[String]) -> String {
     }
 
     let mut neighbors = HashMap::new();
-    for ((x, y), vertex) in vertices.clone().into_iter() {
+    for ((mut x, mut y, _), vertex) in vertices.clone().into_iter() {
         let mut neighbor_values = Vec::new();
-        let mut straight_cost = 0;
+        let mut cost = 0;
 
         for _ in 0..3 {
-            let (x, y) = vertex.direction.movement(x, y);
+            (x, y) = vertex.direction.movement(x, y);
 
-            if !in_range(x, y, input) {
-                continue;
+            if !in_range(x, y, x_size, y_size) {
+                break;
             }
 
-            straight_cost += vertices[&(x, y)].heat_loss;
+            cost += vertices[&(x, y, Direction::Right)].heat_loss;
 
             for turn_direction in [vertex.direction.to_left(), vertex.direction.to_right()] {
-                let (x, y) = turn_direction.movement(x, y);
+                let (turn_x, turn_y) = turn_direction.movement(x, y);
 
-                if !in_range(x, y, input) {
+                if !in_range(turn_x, turn_y, x_size, y_size) {
                     continue;
                 }
 
-                let value = &vertices[&(x, y)];
-                let cost = straight_cost + value.heat_loss;
+                let value = &vertices[&(x, y, turn_direction)];
                 neighbor_values.push(Neighbor { value, cost })
             }
         }
@@ -54,20 +56,52 @@ pub fn solve(input: &[String]) -> String {
     }
 
     let graph = Graph { neighbors };
+    let start = &vertices[&(0, 0, Direction::Right)];
+    let destination = &vertices[&(x_size - 1, y_size - 1, Direction::Right)];
 
-    format!("{}\n{}\n", part_1(&graph), part_2())
+    format!("{}\n{}\n", part_1(&graph, start, destination), part_2())
 }
 
-fn part_1(graph: &Graph) -> String {
-    "part 1 unimplemented".to_string()
+fn part_1(graph: &Graph, start: &Vertex, destination: &Vertex) -> i32 {
+    let mut distances: HashMap<_, _> = graph
+        .neighbors
+        .keys()
+        .map(|vertex| (vertex, i32::MAX))
+        .collect();
+    distances.insert(start, 0);
+
+    let mut queue = PriorityQueue::new();
+    queue.push(start, Reverse(0));
+
+    while let Some((vertex, _)) = queue.pop() {
+        for neighbor in graph.neighbors.get(vertex).unwrap() {
+            let shorter_distance = distances.get(vertex).unwrap() + neighbor.cost;
+            if shorter_distance < *distances.get(neighbor.value).unwrap() {
+                distances.insert(neighbor.value, shorter_distance);
+                queue.push_increase(neighbor.value, Reverse(shorter_distance));
+            }
+        }
+    }
+
+    Direction::iter()
+        .map(|direction| {
+            *distances
+                .get(&Vertex {
+                    direction,
+                    ..destination.clone()
+                })
+                .unwrap()
+        })
+        .min()
+        .unwrap()
 }
 
 fn part_2() -> String {
     "part 2 unimplemented".to_string()
 }
 
-fn in_range(x: i32, y: i32, input: &[String]) -> bool {
-    0 <= x && x < input[0].len() as i32 && 0 <= y && y < input.len() as i32
+fn in_range(x: i32, y: i32, x_size: i32, y_size: i32) -> bool {
+    0 <= x && x < x_size as i32 && 0 <= y && y < y_size as i32
 }
 
 struct Graph<'a> {
