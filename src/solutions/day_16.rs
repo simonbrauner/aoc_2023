@@ -8,19 +8,40 @@ pub fn solve(input: &[String]) -> String {
             .collect(),
     };
 
-    format!("{}\n{}\n", part_1(grid), part_2())
+    format!("{}\n{}\n", part_1(grid.clone()), part_2(grid))
 }
 
 fn part_1(mut grid: Grid) -> usize {
-    grid.move_beams();
+    let mut energized_count = 0;
 
-    grid.count_energized()
+    grid.try_increase_energized(&mut energized_count, 0, 0, Direction::Right);
+
+    energized_count
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn part_2(grid: Grid) -> usize {
+    let mut most_energized = 0;
+
+    let max_y = grid.y_size() - 1;
+    for x in 0..grid.x_size() {
+        grid.clone()
+            .try_increase_energized(&mut most_energized, x, 0, Direction::Down);
+        grid.clone()
+            .try_increase_energized(&mut most_energized, x, max_y, Direction::Up);
+    }
+
+    let max_x = grid.x_size() - 1;
+    for y in 0..grid.y_size() {
+        grid.clone()
+            .try_increase_energized(&mut most_energized, 0, y, Direction::Right);
+        grid.clone()
+            .try_increase_energized(&mut most_energized, max_x, y, Direction::Left);
+    }
+
+    most_energized
 }
 
+#[derive(Clone)]
 struct Grid {
     rows: Vec<Vec<Square>>,
 }
@@ -38,9 +59,10 @@ impl Grid {
         &mut self.rows[y][x]
     }
 
-    fn move_beams(&mut self) {
-        let mut queue = VecDeque::from(vec![(0, 0, Direction::Right)]);
-        self.square_at_coords(0, 0).energize(Direction::Right);
+    fn move_beams(&mut self, start_x: usize, start_y: usize, start_direction: Direction) {
+        let mut queue = VecDeque::from(vec![(start_x, start_y, start_direction.clone())]);
+        self.square_at_coords(start_x, start_y)
+            .energize(start_direction);
 
         while let Some((x, y, direction)) = queue.pop_front() {
             for next_direction in self
@@ -78,8 +100,24 @@ impl Grid {
             .map(|square| if square.is_energized() { 1 } else { 0 })
             .sum()
     }
+
+    fn try_increase_energized(
+        &mut self,
+        most_energized: &mut usize,
+        start_x: usize,
+        start_y: usize,
+        start_direction: Direction,
+    ) {
+        self.move_beams(start_x, start_y, start_direction);
+
+        let current_energized = self.count_energized();
+        if current_energized > *most_energized {
+            *most_energized = current_energized;
+        }
+    }
 }
 
+#[derive(Clone)]
 struct Square {
     r#type: SquareType,
     visited_from: HashSet<Direction>,
@@ -136,6 +174,7 @@ enum Direction {
     Right,
 }
 
+#[derive(Clone)]
 enum SquareType {
     EmptySpace,
     ForwardMirror,
