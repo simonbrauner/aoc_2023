@@ -26,43 +26,52 @@ pub fn solve(input: &[String]) -> String {
         }
     }
 
-    let mut neighbors = HashMap::new();
-    for ((mut x, mut y, _), vertex) in vertices.clone().into_iter() {
-        let mut neighbor_values = Vec::new();
-        let mut cost = 0;
-
-        for _ in 0..3 {
-            (x, y) = vertex.direction.movement(x, y);
-
-            if !in_range(x, y, x_size, y_size) {
-                break;
-            }
-
-            cost += vertices[&(x, y, Direction::Right)].heat_loss;
-
-            for turn_direction in [vertex.direction.to_left(), vertex.direction.to_right()] {
-                let (turn_x, turn_y) = turn_direction.movement(x, y);
-
-                if !in_range(turn_x, turn_y, x_size, y_size) {
-                    continue;
-                }
-
-                let value = &vertices[&(x, y, turn_direction)];
-                neighbor_values.push(Neighbor { value, cost })
-            }
-        }
-
-        neighbors.insert(vertex, neighbor_values);
-    }
-
-    let graph = Graph { neighbors };
     let start = &vertices[&(0, 0, Direction::Right)];
     let destination = &vertices[&(x_size - 1, y_size - 1, Direction::Right)];
 
-    format!("{}\n{}\n", part_1(&graph, start, destination), part_2())
+    format!(
+        "{}\n{}\n",
+        part_1(&vertices, x_size, y_size, start, destination),
+        part_2(&vertices, x_size, y_size, start, destination)
+    )
 }
 
-fn part_1(graph: &Graph, start: &Vertex, destination: &Vertex) -> i32 {
+fn part_1(
+    vertices: &HashMap<(i32, i32, Direction), Vertex>,
+    x_size: i32,
+    y_size: i32,
+    start: &Vertex,
+    destination: &Vertex,
+) -> i32 {
+    find_minimal_heat_loss(vertices, x_size, y_size, start, destination, 1, 3)
+}
+
+fn part_2(
+    vertices: &HashMap<(i32, i32, Direction), Vertex>,
+    x_size: i32,
+    y_size: i32,
+    start: &Vertex,
+    destination: &Vertex,
+) -> i32 {
+    find_minimal_heat_loss(vertices, x_size, y_size, start, destination, 4, 10)
+}
+
+fn find_minimal_heat_loss(
+    vertices: &HashMap<(i32, i32, Direction), Vertex>,
+    x_size: i32,
+    y_size: i32,
+    start: &Vertex,
+    destination: &Vertex,
+    min_straight: i32,
+    max_straight: i32,
+) -> i32 {
+    let neighbors = compute_neighbors(vertices, x_size, y_size, min_straight, max_straight);
+    let graph = Graph { neighbors };
+
+    dijkstra(&graph, start, destination)
+}
+
+fn dijkstra(graph: &Graph, start: &Vertex, destination: &Vertex) -> i32 {
     let mut distances: HashMap<_, _> = graph
         .neighbors
         .keys()
@@ -96,12 +105,51 @@ fn part_1(graph: &Graph, start: &Vertex, destination: &Vertex) -> i32 {
         .unwrap()
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn compute_neighbors(
+    vertices: &HashMap<(i32, i32, Direction), Vertex>,
+    x_size: i32,
+    y_size: i32,
+    min_straight: i32,
+    max_straight: i32,
+) -> HashMap<Vertex, Vec<Neighbor<'_>>> {
+    let mut neighbors = HashMap::new();
+    for ((mut x, mut y, _), vertex) in vertices.clone().into_iter() {
+        let mut neighbor_values = Vec::new();
+        let mut cost = 0;
+
+        for straight_movement_count in 1..=max_straight {
+            (x, y) = vertex.direction.movement(x, y);
+
+            if !in_range(x, y, x_size, y_size) {
+                break;
+            }
+
+            cost += vertices[&(x, y, Direction::Right)].heat_loss;
+
+            if straight_movement_count < min_straight {
+                continue;
+            }
+
+            for turn_direction in [vertex.direction.to_left(), vertex.direction.to_right()] {
+                let (turn_x, turn_y) = turn_direction.movement(x, y);
+
+                if !in_range(turn_x, turn_y, x_size, y_size) {
+                    continue;
+                }
+
+                let value = &vertices[&(x, y, turn_direction)];
+                neighbor_values.push(Neighbor { value, cost })
+            }
+        }
+
+        neighbors.insert(vertex, neighbor_values);
+    }
+
+    neighbors
 }
 
 fn in_range(x: i32, y: i32, x_size: i32, y_size: i32) -> bool {
-    0 <= x && x < x_size as i32 && 0 <= y && y < y_size as i32
+    0 <= x && x < x_size && 0 <= y && y < y_size
 }
 
 struct Graph<'a> {
