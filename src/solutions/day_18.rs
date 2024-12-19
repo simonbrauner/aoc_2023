@@ -11,34 +11,57 @@ pub fn solve(input: &[String]) -> String {
         .map(|line| {
             let row_data = row_re.captures(line).unwrap().extract::<3>().1;
             let direction = Direction::new(row_data[0].chars().next().unwrap());
-            let count = row_data[1].parse::<i32>().unwrap();
-            let _color = row_data[2].to_string();
+            let count = row_data[1].parse::<i64>().unwrap();
+            let color = row_data[2].to_string();
 
             Instruction {
                 direction,
                 count,
-                _color,
+                color,
             }
         })
         .collect::<Vec<_>>();
 
-    format!("{}\n{}\n", part_1(&instructions), part_2())
+    format!("{}\n{}\n", part_1(&instructions), part_2(&instructions))
 }
 
-fn part_1(instructions: &[Instruction]) -> i32 {
+fn part_1(instructions: &[Instruction]) -> i64 {
+    dig_and_count(
+        instructions,
+        |instruction| instruction.count,
+        |instruction| instruction.direction.clone(),
+    )
+}
+
+fn part_2(instructions: &[Instruction]) -> i64 {
+    let compute_count =
+        |instruction: &Instruction| i64::from_str_radix(&instruction.color[1..6], 16).unwrap();
+    let compute_direction =
+        |instruction: &Instruction| match instruction.color.chars().nth(6).unwrap() {
+            '0' => Direction::Right,
+            '1' => Direction::Down,
+            '2' => Direction::Left,
+            '3' => Direction::Up,
+            _ => unreachable!(),
+        };
+
+    dig_and_count(instructions, compute_count, compute_direction)
+}
+
+fn dig_and_count<F, G>(instructions: &[Instruction], compute_count: F, compute_direction: G) -> i64
+where
+    F: Fn(&Instruction) -> i64,
+    G: Fn(&Instruction) -> Direction,
+{
     let mut area = Area::new();
 
-    area.dig_edges(instructions);
+    area.dig_edges(instructions, compute_count, compute_direction);
 
     area.count_holes()
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
-}
-
 struct Area {
-    corners: HashMap<i32, BTreeSet<DugCube>>,
+    corners: HashMap<i64, BTreeSet<DugCube>>,
 }
 
 impl Area {
@@ -48,32 +71,34 @@ impl Area {
         }
     }
 
-    fn dig_edges(&mut self, instructions: &[Instruction]) {
+    fn dig_edges<F, G>(
+        &mut self,
+        instructions: &[Instruction],
+        compute_count: F,
+        compute_direction: G,
+    ) where
+        F: Fn(&Instruction) -> i64,
+        G: Fn(&Instruction) -> Direction,
+    {
         let (mut x, mut y) = (0, 0);
 
         let mut instruction_iterator = instructions.iter().peekable();
 
         while let Some(instruction) = instruction_iterator.next() {
-            let count = instruction.count;
-            let next_direction = instruction_iterator
-                .peek()
-                .unwrap_or(&&instructions[0])
-                .direction
-                .clone();
+            let count = compute_count(instruction);
+            let current_direction = compute_direction(instruction);
+            let next_direction =
+                compute_direction(instruction_iterator.peek().unwrap_or(&&instructions[0]));
 
             match instruction.direction {
-                Direction::Up | Direction::Down => self.dig_vertically(
-                    &mut x,
-                    &mut y,
-                    count,
-                    &instruction.direction,
-                    &next_direction,
-                ),
+                Direction::Up | Direction::Down => {
+                    self.dig_vertically(&mut x, &mut y, count, &current_direction, &next_direction)
+                }
                 Direction::Left | Direction::Right => self.dig_horizontally(
                     &mut x,
                     &mut y,
                     count,
-                    &instruction.direction,
+                    &current_direction,
                     &next_direction,
                 ),
             }
@@ -82,14 +107,14 @@ impl Area {
 
     fn dig_vertically(
         &mut self,
-        x: &mut i32,
-        y: &mut i32,
-        count: i32,
-        direction: &Direction,
+        x: &mut i64,
+        y: &mut i64,
+        count: i64,
+        current_direction: &Direction,
         next_direction: &Direction,
     ) {
         for turn in 0..count {
-            *y += match direction {
+            *y += match current_direction {
                 Direction::Up => 1,
                 Direction::Down => -1,
                 _ => unreachable!(),
@@ -104,7 +129,7 @@ impl Area {
             } else {
                 DugCubeType::Edge
             };
-            let vertical_direction = direction.clone();
+            let vertical_direction = current_direction.clone();
             self.corners.entry(*y).or_default().insert(DugCube {
                 x: *x,
                 r#type,
@@ -115,19 +140,19 @@ impl Area {
 
     fn dig_horizontally(
         &mut self,
-        x: &mut i32,
-        y: &mut i32,
-        count: i32,
-        direction: &Direction,
+        x: &mut i64,
+        y: &mut i64,
+        count: i64,
+        current_direction: &Direction,
         next_direction: &Direction,
     ) {
-        *x += match direction {
+        *x += match current_direction {
             Direction::Left => -count,
             Direction::Right => count,
             _ => unreachable!(),
         };
 
-        let r#type = match direction {
+        let r#type = match current_direction {
             Direction::Left => DugCubeType::CornerStart,
             Direction::Right => DugCubeType::CornerEnd,
             _ => unreachable!(),
@@ -140,12 +165,12 @@ impl Area {
         });
     }
 
-    fn count_holes(&self) -> i32 {
+    fn count_holes(&self) -> i64 {
         let mut count = self
             .corners
             .values()
             .flat_map(|edge_cubes| edge_cubes.iter())
-            .count() as i32;
+            .count() as i64;
 
         for edge_cubes in self.corners.values() {
             let mut inside = false;
@@ -173,7 +198,7 @@ impl Area {
 
 #[derive(Eq, PartialEq, PartialOrd, Ord)]
 struct DugCube {
-    x: i32,
+    x: i64,
     r#type: DugCubeType,
     vertical_direction: Direction,
 }
@@ -193,8 +218,8 @@ enum DugCubeType {
 
 struct Instruction {
     direction: Direction,
-    count: i32,
-    _color: String,
+    count: i64,
+    color: String,
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord, Clone)]
