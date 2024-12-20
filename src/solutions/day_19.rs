@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rayon::prelude::*;
 use regex::Regex;
 
 pub fn solve(input: &[String]) -> String {
@@ -30,14 +31,14 @@ pub fn solve(input: &[String]) -> String {
             .unwrap()
             .extract::<4>()
             .1
-            .map(|s| s.parse::<usize>().unwrap());
+            .map(|s| s.parse::<u64>().unwrap());
         parts.push(Part { x, m, a, s });
     }
 
-    format!("{}\n{}\n", part_1(&workflows, &parts), part_2())
+    format!("{}\n{}\n", part_1(&workflows, &parts), part_2(&workflows))
 }
 
-fn part_1(workflows: &HashMap<String, String>, parts: &[Part]) -> usize {
+fn part_1(workflows: &HashMap<String, String>, parts: &[Part]) -> u64 {
     parts
         .iter()
         .filter(|part| part.eval(workflows, "in"))
@@ -45,15 +46,40 @@ fn part_1(workflows: &HashMap<String, String>, parts: &[Part]) -> usize {
         .sum()
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn part_2(workflows: &HashMap<String, String>) -> u64 {
+    let edge_cases = Part::compute_edge_cases(workflows);
+    let x_edges = edge_cases.get("x").unwrap();
+    let m_edges = edge_cases.get("m").unwrap();
+    let a_edges = edge_cases.get("a").unwrap();
+    let s_edges = edge_cases.get("s").unwrap();
+
+    x_edges
+        .par_iter()
+        .zip(x_edges.par_iter().skip(1))
+        .map(|(&x, &next_x)| {
+            let mut subresult = 0;
+
+            for (&m, &next_m) in m_edges.iter().zip(m_edges.iter().skip(1)) {
+                for (&a, &next_a) in a_edges.iter().zip(a_edges.iter().skip(1)) {
+                    for (&s, &next_s) in s_edges.iter().zip(s_edges.iter().skip(1)) {
+                        let part = Part { x, m, a, s };
+                        if part.eval(workflows, "in") {
+                            subresult += (next_x - x) * (next_m - m) * (next_a - a) * (next_s - s);
+                        }
+                    }
+                }
+            }
+
+            subresult
+        })
+        .sum()
 }
 
 struct Part {
-    x: usize,
-    m: usize,
-    a: usize,
-    s: usize,
+    x: u64,
+    m: u64,
+    a: u64,
+    s: u64,
 }
 
 impl Part {
@@ -66,18 +92,10 @@ impl Part {
         }
 
         for rule in workflows.get(current_name).unwrap().split(',') {
-            let operator = if rule.contains('<') {
-                Some('<')
-            } else if rule.contains('>') {
-                Some('>')
-            } else {
-                None
-            };
-
-            if let Some(operator) = operator {
+            if let Some(operator) = Self::extract_operator(rule) {
                 let (condition, next_name) = rule.split_once(':').unwrap();
                 let (component, number) = condition.split_once(operator).unwrap();
-                let number = number.parse::<usize>().unwrap();
+                let number = number.parse::<u64>().unwrap();
 
                 if (operator == '<' && self.get(component) < number)
                     || (operator == '>' && self.get(component) > number)
@@ -92,13 +110,53 @@ impl Part {
         unreachable!();
     }
 
-    fn get(&self, component: &str) -> usize {
+    fn compute_edge_cases(workflows: &HashMap<String, String>) -> HashMap<String, Vec<u64>> {
+        let mut edge_cases: HashMap<String, Vec<u64>> = "xmas"
+            .chars()
+            .map(|ch| (ch.to_string(), vec![1, 4001]))
+            .collect();
+
+        for rules in workflows.values() {
+            for rule in rules.split(',') {
+                if let Some(operator) = Self::extract_operator(rule) {
+                    let (condition, _) = rule.split_once(':').unwrap();
+                    let (component, number) = condition.split_once(operator).unwrap();
+                    let mut number = number.parse::<u64>().unwrap();
+
+                    if operator == '>' {
+                        number += 1;
+                    }
+
+                    edge_cases.get_mut(component).unwrap().push(number);
+                }
+            }
+        }
+
+        for numbers in edge_cases.values_mut() {
+            numbers.sort();
+            numbers.dedup();
+        }
+
+        edge_cases
+    }
+
+    fn get(&self, component: &str) -> u64 {
         match component {
             "x" => self.x,
             "m" => self.m,
             "a" => self.a,
             "s" => self.s,
             _ => unreachable!(),
+        }
+    }
+
+    fn extract_operator(rule: &str) -> Option<char> {
+        if rule.contains('<') {
+            Some('<')
+        } else if rule.contains('>') {
+            Some('>')
+        } else {
+            None
         }
     }
 }
