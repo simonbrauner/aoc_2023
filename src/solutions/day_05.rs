@@ -34,7 +34,7 @@ fn part_1(almanac: &Almanac) -> u32 {
     almanac
         .seeds
         .iter()
-        .map(|seed| seed_to_location(*seed, almanac))
+        .map(|&seed| seed_to_location(seed, almanac))
         .min()
         .unwrap()
 }
