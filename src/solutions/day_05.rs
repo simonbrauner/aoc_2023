@@ -27,20 +27,21 @@ pub fn solve(input: &[String]) -> String {
         }
     }
 
-    format!("{}\n{}\n", part_1(&almanac), part_2())
+    format!("{}\n{}\n", part_1(&almanac), part_2(&almanac))
 }
 
 fn part_1(almanac: &Almanac) -> u32 {
-    almanac
-        .seeds
-        .iter()
-        .map(|&seed| seed_to_location(seed, almanac))
-        .min()
-        .unwrap()
+    almanac.lowest_location_number(almanac.seeds.clone().into_iter())
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn part_2(almanac: &Almanac) -> u32 {
+    almanac.lowest_location_number(
+        almanac
+            .seeds
+            .iter()
+            .tuples()
+            .flat_map(|(&start, &count)| (start..(start + count))),
+    )
 }
 
 fn seed_to_location(seed: u32, almanac: &Almanac) -> u32 {
@@ -68,6 +69,16 @@ impl Almanac {
             seeds: Vec::new(),
             maps: Vec::new(),
         }
+    }
+
+    fn lowest_location_number<I>(&self, iterator: I) -> u32
+    where
+        I: Iterator<Item = u32>,
+    {
+        iterator
+            .map(|seed| seed_to_location(seed, self))
+            .min()
+            .unwrap()
     }
 }
 
