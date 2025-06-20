@@ -8,7 +8,7 @@ pub fn solve(input: &[String]) -> String {
         .iter()
         .map(|line| {
             let hand = hand_re.captures(line).unwrap().extract::<2>().1;
-            let cards = hand[0].chars().into_iter().map(Card::new).collect();
+            let cards = hand[0].chars().map(Card::new).collect();
             let bid = hand[1].parse::<u32>().unwrap();
 
             Hand { cards, bid }
@@ -85,7 +85,7 @@ impl Hand {
             .collect();
 
         match (
-            *counts.get(0).unwrap_or(&0) + joker_count,
+            *counts.first().unwrap_or(&0) + joker_count,
             *counts.get(1).unwrap_or(&0),
         ) {
             (5, _) => Type::FiveOfAKind,

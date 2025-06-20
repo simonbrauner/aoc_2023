@@ -30,7 +30,7 @@ fn calibration_sum(document: &[String]) -> u32 {
             let mut digits = line.chars().filter_map(|letter| letter.to_digit(10));
 
             let first = digits.next().unwrap();
-            let last = digits.last().unwrap_or(first);
+            let last = digits.next_back().unwrap_or(first);
 
             10 * first + last
         })
