@@ -4,7 +4,7 @@ use regex::Regex;
 pub fn solve(input: &[String]) -> String {
     let hand_re = Regex::new(r"(\w+) (\d+)").unwrap();
 
-    let mut hands: Vec<_> = input
+    let hands: Vec<_> = input
         .iter()
         .map(|line| {
             let hand = hand_re.captures(line).unwrap().extract::<2>().1;
@@ -15,25 +15,37 @@ pub fn solve(input: &[String]) -> String {
         })
         .collect();
 
-    hands.sort_by(|a, b| {
-        a.compute_type()
-            .cmp(&b.compute_type())
-            .then_with(|| a.cards.cmp(&b.cards))
-    });
-
-    format!("{}\n{}\n", part_1(&hands), part_2())
+    format!("{}\n{}\n", part_1(&hands), part_2(&hands))
 }
 
 fn part_1(hands: &[Hand]) -> usize {
+    total_winnings(hands)
+}
+
+fn part_2(hands: &[Hand]) -> usize {
+    let mut hands_with_jokers = hands.to_vec();
+    for hand in hands_with_jokers.iter_mut() {
+        hand.cards.iter_mut().for_each(|card| {
+            if *card == Card::Jack {
+                *card = Card::Joker;
+            }
+        });
+    }
+
+    total_winnings(&hands_with_jokers)
+}
+
+fn total_winnings(hands: &[Hand]) -> usize {
     hands
         .iter()
+        .sorted_by(|a, b| {
+            a.compute_type()
+                .cmp(&b.compute_type())
+                .then_with(|| a.cards.cmp(&b.cards))
+        })
         .enumerate()
         .map(|(index, hand)| (index + 1) * hand.bid as usize)
         .sum()
-}
-
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
 }
 
 #[derive(Clone)]
@@ -55,9 +67,16 @@ enum Type {
 
 impl Hand {
     fn compute_type(&self) -> Type {
+        let joker_count = self
+            .cards
+            .iter()
+            .filter(|&card| *card == Card::Joker)
+            .count();
+
         let counts: Vec<_> = self
             .cards
             .iter()
+            .filter(|&card| *card != Card::Joker)
             .counts()
             .values()
             .cloned()
@@ -65,13 +84,16 @@ impl Hand {
             .rev()
             .collect();
 
-        match (counts.get(0), counts.get(1)) {
-            (Some(5), _) => Type::FiveOfAKind,
-            (Some(4), _) => Type::FourOfAKind,
-            (Some(3), Some(2)) => Type::FullHouse,
-            (Some(3), Some(1)) => Type::ThreeOfAKind,
-            (Some(2), Some(2)) => Type::TwoPairs,
-            (Some(2), Some(1)) => Type::OnePair,
+        match (
+            *counts.get(0).unwrap_or(&0) + joker_count,
+            *counts.get(1).unwrap_or(&0),
+        ) {
+            (5, _) => Type::FiveOfAKind,
+            (4, _) => Type::FourOfAKind,
+            (3, 2) => Type::FullHouse,
+            (3, 1) => Type::ThreeOfAKind,
+            (2, 2) => Type::TwoPairs,
+            (2, 1) => Type::OnePair,
             _ => Type::HighCard,
         }
     }
@@ -79,6 +101,7 @@ impl Hand {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Card {
+    Joker,
     Number(u32),
     Jack,
     Queen,
