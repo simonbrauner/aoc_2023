@@ -1,4 +1,4 @@
-use std::cmp;
+use std::{cmp, collections::HashSet};
 
 use regex::Regex;
 
@@ -24,11 +24,11 @@ pub fn solve(input: &[String]) -> String {
         })
         .collect();
 
-    format!("{}\n{}\n", part_1(bricks.clone()), part_2())
+    format!("{}\n{}\n", part_1(bricks.clone()), part_2(bricks))
 }
 
 fn part_1(bricks: Vec<Brick>) -> usize {
-    let bricks_on_ground = make_bricks_fall(bricks);
+    let bricks_on_ground = make_bricks_fall(bricks).0;
 
     bricks_on_ground
         .clone()
@@ -40,40 +40,27 @@ fn part_1(bricks: Vec<Brick>) -> usize {
                 .filter(|b| b != removed)
                 .collect();
 
-            bricks_without_removed
-                .iter()
-                .all(|brick| !brick.can_move_down(&bricks_without_removed))
+            make_bricks_fall(bricks_without_removed).1 == 0
         })
         .count()
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
-}
+fn part_2(bricks: Vec<Brick>) -> usize {
+    let bricks_on_ground = make_bricks_fall(bricks).0;
 
-fn make_bricks_fall(bricks: Vec<Brick>) -> Vec<Brick> {
-    let mut bricks = bricks;
-    let mut change = true;
+    bricks_on_ground
+        .clone()
+        .into_iter()
+        .map(|removed| {
+            let bricks_without_removed: Vec<_> = bricks_on_ground
+                .clone()
+                .into_iter()
+                .filter(|b| *b != removed)
+                .collect();
 
-    while change {
-        let mut next_bricks = Vec::new();
-        change = false;
-
-        for brick in bricks.iter() {
-            let mut next_brick = brick.clone();
-
-            if next_brick.can_move_down(&bricks) {
-                next_brick.move_down();
-                change = true;
-            }
-
-            next_bricks.push(next_brick);
-        }
-
-        bricks = next_bricks;
-    }
-
-    bricks
+            make_bricks_fall(bricks_without_removed).1
+        })
+        .sum()
 }
 
 #[derive(Clone, PartialEq)]
@@ -88,12 +75,13 @@ struct Brick {
 
 impl Brick {
     fn can_move_down(&self, bricks: &Vec<Brick>) -> bool {
-        if self.z_min == 1 {
+        let z_min_next = self.z_min - 1;
+        if z_min_next == GROUND {
             return false;
         }
 
         for brick in bricks {
-            if self.z_min - 1 == brick.z_max
+            if z_min_next == brick.z_max
                 && cmp::max(self.x_min, brick.x_min) <= cmp::min(self.x_max, brick.x_max)
                 && cmp::max(self.y_min, brick.y_min) <= cmp::min(self.y_max, brick.y_max)
             {
@@ -109,3 +97,32 @@ impl Brick {
         self.z_max -= 1;
     }
 }
+
+fn make_bricks_fall(bricks: Vec<Brick>) -> (Vec<Brick>, usize) {
+    let mut bricks = bricks;
+    let mut moved_indices: HashSet<_> = HashSet::new();
+    let mut change = true;
+
+    while change {
+        let mut next_bricks = Vec::new();
+        change = false;
+
+        for (index, brick) in bricks.iter().enumerate() {
+            let mut next_brick = brick.clone();
+
+            if next_brick.can_move_down(&bricks) {
+                next_brick.move_down();
+                moved_indices.insert(index);
+                change = true;
+            }
+
+            next_bricks.push(next_brick);
+        }
+
+        bricks = next_bricks;
+    }
+
+    (bricks, moved_indices.len())
+}
+
+const GROUND: usize = 0;
