@@ -45,7 +45,7 @@ pub fn solve(input: &[String]) -> String {
         }
     }
 
-    format!("{}\n{}\n", part_1(&modules), part_2())
+    format!("{}\n{}\n", part_1(&modules), part_2(&modules))
 }
 
 fn part_1(modules: &HashMap<String, Module>) -> usize {
@@ -71,8 +71,32 @@ fn part_1(modules: &HashMap<String, Module>) -> usize {
     counter.values().product()
 }
 
-fn part_2() -> String {
-    "part 2 unimplemented".to_string()
+fn part_2(modules: &HashMap<String, Module>) -> usize {
+    let mut modules = modules.clone();
+    let mut counter = 0;
+
+    loop {
+        counter += 1;
+        if counter % 10_000_000 == 0 {
+            println!("{}", counter);
+        }
+
+        let mut queue = VecDeque::new();
+        queue.push_back((BROADCASTER_NAME.to_string(), Pulse::Low));
+
+        while let Some((sender_name, pulse)) = queue.pop_front() {
+            let sender = modules.get(&sender_name).unwrap().clone();
+
+            for receiver_name in sender.output_names.iter() {
+                if receiver_name == TURN_ON_MODULE && pulse == TURN_ON_PULSE {
+                    return counter;
+                }
+
+                let receiver = modules.get_mut(receiver_name).unwrap();
+                receiver.accept_pulse_from(receiver_name, &sender_name, pulse.clone(), &mut queue);
+            }
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -158,3 +182,5 @@ impl Module {
 
 const BROADCASTER_NAME: &str = "broadcaster";
 const PUSH_COUNT: usize = 1000;
+const TURN_ON_MODULE: &str = "rx";
+const TURN_ON_PULSE: Pulse = Pulse::Low;
